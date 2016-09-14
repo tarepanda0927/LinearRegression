@@ -100,7 +100,8 @@ void main(int argc, char *argv[]) {
 	int n = fcase.size() - 1;
 	int Fd = input_info.fd;
 	int Rd = input_info.rd;
-
+	std::vector<double> L2error;
+	//Leave-one-out ループ
 	for (int i = 0; i < fcase.size(); i++) {
 		//ファイル読み込み
 		//成長前形状LS主成分スコア
@@ -109,6 +110,14 @@ void main(int argc, char *argv[]) {
 		// 成長後形状LS主成分スコア(正解も含む)
 		std::vector<double> Ref;
 		read_vector(Ref, input_info.dir_score + "Ref/" + rcase[i] + "/mat.raw");
+		//各軸の分散を読み込む
+		std::vector<double> r_cov;
+		std::ifstream covtxt(input_info.dir_score + "Ref/" + rcase[i] + "/eval.txt");
+		std::string buf_co;
+		while (covtxt&& getline(covtxt, buf_co))
+		{
+			r_cov.push_back(stod(buf_co));
+		}
 		//それぞれ学習,テストデータのスコアのみ抜き出す
 		std::vector<double> Fl_te;    //テスト入力
 		std::vector<double> Ref_te;   //テスト正解
@@ -174,14 +183,28 @@ void main(int argc, char *argv[]) {
 			Eigen::MatrixXd linear = linear_0.inverse()*X.transpose()*Y; //係数算出
 			co_sum += linear;
 		}
+		//学習データL法で出した係数の平均をとる
 		Eigen::MatrixXd co_mean = co_sum / (n - 1);
 		Eigen::MatrixXd linear_result = Xt*co_mean;
+		std::cout << linear_result << std::endl;
 		std::stringstream dirOUT;
 		dirOUT << input_info.dir_out << fcase[i] << "/linear";
 		write_matrix_raw_and_txt(linear_result, dirOUT.str());
 		std::ofstream mat_result(dirOUT.str() + ".txt");
+		double sum_E = 0;
 		for (int j = 0; j < Rd; j++) {
 			mat_result << linear_result(0, j) << std::endl;
+			double dev = sqrt(r_cov[j]);
+			double reg_l = linear_result(0, j) / dev; //正規化後予測スコア
+			double reg_a = Ref_te[j] / dev; //正規化後正解スコア
+			sum_E += (reg_l - reg_a)*(reg_l - reg_a);
 		}
+		L2error.push_back(sqrt(sum_E));
+	}
+	std::stringstream dirOUT2;
+	dirOUT2 << input_info.dir_out << "L2error";
+	std::ofstream mat_result2(dirOUT2.str() + "_LR.txt");
+	for (int i = 0; i < fcase.size(); i++) {
+		mat_result2 << L2error[i] << std::endl;
 	}
 }
