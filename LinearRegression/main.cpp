@@ -146,7 +146,8 @@ void main(int argc, char *argv[]) {
 		Xt.block(0, 1, 1, Fd) = Xt_0;
 		//ŒW”‚ğŠi”[‚·‚é•¶š—ñ‚ğ’è‹`
 		Eigen::MatrixXd co_sum = co_sum.Zero(Fd + 1, Rd);
-
+		
+		std::vector<double> co_all;
 		//ŠwKL–@ƒ‹[[[ƒv
 		for (int j = 0; j < fcase.size(); j++) {
 			if (i == j) continue;
@@ -180,12 +181,37 @@ void main(int argc, char *argv[]) {
 			Eigen::MatrixXd Y__ = Eigen::Map<Eigen::MatrixXd>(&Ref_tr[0], Rd, n - 1);
 			Eigen::MatrixXd Y = Y__.transpose();
 			Eigen::MatrixXd linear_0 = X.transpose()*X;
+			//ŒW”
 			Eigen::MatrixXd linear = linear_0.inverse()*X.transpose()*Y; //ŒW”Zo
-			co_sum += linear;
+			for (int k = 0; k < Rd; k++) {
+				Eigen::MatrixXd linear_ = linear.col(k);
+				for (int l = 0; l < Fd + 1; l++) {
+					double m = linear_(l, 0);
+					co_all.push_back(m);
+				}
+			}
 		}
-		//ŠwKƒf[ƒ^L–@‚Åo‚µ‚½ŒW”‚Ì•½‹Ï‚ğ‚Æ‚é
-		Eigen::MatrixXd co_mean = co_sum / (n - 1);
-		Eigen::MatrixXd linear_result = Xt*co_mean;
+		//ŒW”‚Ì’†‰›’l‚ğ‚Æ‚é
+		Eigen::MatrixXd Co_all = Eigen::Map<Eigen::MatrixXd>(&co_all[0], (Fd + 1)*Rd, fcase.size() - 1);
+		std::vector<double> Co_med;
+		for (int j = 0; j < (Fd + 1)*Rd; j++) {
+			std::vector<double> c_v;
+			for (int k = 0; k < fcase.size() - 1; k++) {
+				c_v.push_back(Co_all(j, k));
+			}
+			std::sort(c_v.begin(), c_v.end());
+			if ((fcase.size() - 1) % 2 == 1) {
+				int m = fcase.size() / 2 + 1;
+				Co_med.push_back(c_v[m]);
+			}
+			else {
+				int n = fcase.size() / 2;
+				int m = fcase.size() / 2 + 1;
+				Co_med.push_back((c_v[n] + c_v[m]) / 2);
+			}
+		}
+		Eigen::MatrixXd co_med= Eigen::Map<Eigen::MatrixXd>(&Co_med[0], Fd+1, Rd);
+		Eigen::MatrixXd linear_result = Xt*co_med;
 		std::cout << linear_result << std::endl;
 		std::stringstream dirOUT;
 		dirOUT << input_info.dir_out << fcase[i] << "/linear";
